@@ -10,7 +10,7 @@ SHEBANG := "\#!/usr/bin/env python"
 .PHONY: all get-version \
 		dist upload \
 		pyi-exe pyi-spec \
-        clean clean-pycache clean-output clean-dist clean-build clean-egg clean-pyi
+		clean clean-pycache clean-output clean-dist clean-build clean-egg clean-pyi
 
 
 all: $(PROGRAM_NAME)
@@ -39,7 +39,7 @@ pyi-exe:
 				--workpath pyinstaller/build
 pyi-spec:
 	pyi-makespec pyi_entry.py \
-	             --name $(PROGRAM_NAME) \
+				 --name $(PROGRAM_NAME) \
 				 --onefile \
 				 --icon NONE \
 				 --version-file pyi_win_version_info.py
