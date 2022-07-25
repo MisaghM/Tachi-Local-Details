@@ -7,7 +7,7 @@ from . import (
 
 def _get_id(args: cmdline_parser.Args) -> str:
     if args.id_url:
-        if args.id_url.isdigit():
+        if bakaupdates.utils.is_id(args.id_url):
             id_ = args.id_url
         else:
             try:
