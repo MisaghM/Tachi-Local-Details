@@ -27,7 +27,7 @@ def _make_dict(manga: Manga, keep_status_values: bool = True) -> dict:
         "author": manga.author if isinstance(manga.author, str) else ", ".join(manga.author),
         "artist": manga.artist if isinstance(manga.artist, str) else ", ".join(manga.artist),
         "description": manga.description,
-        "genre": (manga.tags,) if isinstance(manga.tags, str) else manga.tags,
+        "genre": manga.tags,
         "status": _status_values_map[manga.status]
     }
     if keep_status_values:

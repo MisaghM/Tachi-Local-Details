@@ -1,4 +1,4 @@
-from distutils.util import strtobool
+from typing import List
 
 import requests
 import bs4
@@ -18,81 +18,120 @@ def _get_html(id_: str) -> bytes:
     return page.content
 
 
-_manga_attribute_map = {
-    "Associated Names": "alt_names",
-    "Author(s)": "author",
-    "Artist(s)": "artist",
-    "Description": "description",
-    "Year": "year",
-    "Genre": "tags",
-    "Status in Country of Origin": "status",
-    "Licensed (in English)": "licensed",
-    "Serialized In (magazine)": "magazine"
-}
+def _get_text(tag: bs4.element.Tag, recursive: bool = True) -> List[str]:
+    strings = [x.strip().replace("\u00A0", " ")
+               for x in tag.find_all(string=True, recursive=recursive)
+               if not x.isspace() and not isinstance(x, bs4.Comment)]
+    if strings and strings[0] == "N/A":
+        strings = []
+    return strings
 
 
-def _extract_from_html(page_html: bytes) -> Manga:
-    doc = bs4.BeautifulSoup(page_html, "html.parser")
-    manga = Manga.create_empty_instance()
+class _MangaHandler:
+    def __init__(self):
+        self.manga = Manga.create_empty_instance()
 
-    title = doc.find("span", class_="releasestitle")
-    if title is None:
-        raise ValueError("Manga not found.")
-    manga.name = title.string.strip()
+    def extract_from_html(self, page_html: bytes) -> Manga:
+        doc = bs4.BeautifulSoup(page_html, "html.parser")
 
-    for item in doc.find_all("div", class_="sCat"):
-        item_text = item.get_text().strip()
-        if item_text in _manga_attribute_map:
-            content = list(item.find_next_sibling("div", class_="sContent").stripped_strings)
-            if len(content) == 1:
-                content = content[0]
-                if content == "N/A":
-                    content = ""
-            setattr(manga, _manga_attribute_map[item_text], content)
+        title = doc.find("span", class_="releasestitle")
+        if title is None:
+            raise ValueError("Manga not found.")
+        self.manga.name = title.string.strip()
 
-    return manga
+        for item in doc.find_all("div", class_="sCat"):
+            item_text = item.get_text().strip()
+            if item_text in self._attribute_map:
+                content_tag = item.find_next_sibling("div", class_="sContent")
+                self._attribute_map[item_text](self, content_tag)
 
+        return self.manga
 
-def _scrape_data(page_html: bytes) -> Manga:
-    manga = _extract_from_html(page_html)
+    def _alt_names(self, tag):
+        alts = _get_text(tag)
+        self.manga.alt_names = alts
 
-    if isinstance(manga.status, list):
-        manga.status = " ".join(manga.status)
-    manga.status = manga.status.lower()
-    if "ongoing" in manga.status:
-        manga.status = Manga.Status.ongoing
-    elif "complete" in manga.status:
-        manga.status = Manga.Status.completed
-    elif "canceled" in manga.status:
-        manga.status = Manga.Status.canceled
-    elif "haitus" in manga.status:
-        manga.status = Manga.Status.hiatus
-    else:
-        manga.status = Manga.Status.unknown
+    def _creator(self, tag):
+        text = _get_text(tag)
+        names = [x for x in text if x not in ("Add", "]")]
 
-    if isinstance(manga.description, list):
-        manga.description = "\n".join(manga.description)
+        if len(names) != len(text):
+            for i, x in enumerate(names):
+                if x[-1] == "[":
+                    names[i] = x[:-1].strip()
 
-    manga.licensed = bool(strtobool(manga.licensed))
+        if not names:
+            return ""
+        if len(names) == 1:
+            return names[0]
+        return names
 
-    if manga.alt_names:
-        if isinstance(manga.alt_names, str):
-            manga.alt_names = [manga.alt_names]
-    else:
-        manga.alt_names = []
+    def _author(self, tag):
+        names = self._creator(tag)
+        self.manga.author = names
 
-    if manga.tags:
-        manga.tags.pop()
-    else:
-        manga.tags = []
+    def _artist(self, tag):
+        names = self._creator(tag)
+        self.manga.artist = names
 
-    if manga.year:
-        manga.year = int(manga.year)
-    else:
-        manga.year = None
+    def _description(self, tag):
+        more = tag.find("div", id="div_desc_more")
+        if more is not None:
+            tag = more
+        description = "\n".join(_get_text(tag, recursive=False))
+        self.manga.description = description
 
-    return manga
+    def _year(self, tag):
+        year = _get_text(tag, recursive=False)
+        if year:
+            self.manga.year = int(year[0])
+        else:
+            self.manga.year = 0
+
+    def _tags(self, tag):
+        tags = _get_text(tag)
+        if tags:
+            tags.pop()
+        self.manga.tags = tags
+
+    def _status(self, tag):
+        status = " ".join(_get_text(tag, recursive=False)).lower()
+        if "ongoing" in status:
+            self.manga.status = Manga.Status.ongoing
+        elif "complete" in status:
+            self.manga.status = Manga.Status.completed
+        elif "canceled" in status:
+            self.manga.status = Manga.Status.canceled
+        elif "haitus" in status:
+            self.manga.status = Manga.Status.hiatus
+        else:
+            self.manga.status = Manga.Status.unknown
+
+    def _licensed(self, tag):
+        license_ = _get_text(tag, recursive=False)
+        if license_:
+            self.manga.licensed = license_[0].lower() == "yes"
+        else:
+            self.manga.licensed = False
+
+    def _magazine(self, tag):
+        mangazine = _get_text(tag)
+        if len(mangazine) == 1:
+            mangazine = mangazine[0]
+        self.manga.magazine = mangazine
+
+    _attribute_map = {
+        "Associated Names": _alt_names,
+        "Author(s)": _author,
+        "Artist(s)": _artist,
+        "Description": _description,
+        "Year": _year,
+        "Genre": _tags,
+        "Status in Country of Origin": _status,
+        "Licensed (in English)": _licensed,
+        "Serialized In (magazine)": _magazine,
+    }
 
 
 def get_manga(id_: str) -> Manga:
-    return _scrape_data(_get_html(id_))
+    return _MangaHandler().extract_from_html(_get_html(id_))
