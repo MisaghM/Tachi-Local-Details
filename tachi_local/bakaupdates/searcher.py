@@ -13,7 +13,7 @@ def _get_html(title: str) -> bytes:
     }
 
     try:
-        page = requests.get("https://www.mangaupdates.com/series.html", params=payload, timeout=20)
+        page = requests.get("https://www.mangaupdates.com/series", params=payload, timeout=20)
     except requests.exceptions.RequestException as ex:
         raise SystemExit(ex) from ex
 
@@ -31,7 +31,7 @@ def _scrape_data(page_html: bytes) -> List[SearchData]:
     doc = bs4.BeautifulSoup(page_html, "html.parser")
     data: List[SearchData] = []
 
-    for item in doc.find_all(alt="Series Info"):
+    for item in doc.find_all(title="Click for Series Info"):
         try:
             id_ = utils.get_id_from_url(item["href"])
         except ValueError:

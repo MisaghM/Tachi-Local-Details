@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import requests
 import bs4
@@ -18,7 +18,7 @@ def _get_html(id_: str) -> bytes:
     return page.content
 
 
-def _get_text(tag: bs4.element.Tag, recursive: bool = True) -> List[str]:
+def _get_text(tag: bs4.Tag, recursive: bool = True) -> List[str]:
     strings = [x.strip().replace("\u00A0", " ")
                for x in tag.find_all(string=True, recursive=recursive)
                if not x.isspace() and not isinstance(x, bs4.Comment)]
@@ -39,19 +39,15 @@ class _MangaHandler:
             raise ValueError("Manga not found.")
         self.manga.name = title.string.strip()
 
-        for item in doc.find_all("div", class_="sCat"):
+        for item in doc.select("div[class^='info-box_sCat']"):
             item_text = item.get_text().strip()
             if item_text in self._attribute_map:
-                content_tag = item.find_next_sibling("div", class_="sContent")
+                content_tag = item.find_next_sibling("div")
                 self._attribute_map[item_text](self, content_tag)
 
         return self.manga
 
-    def _alt_names(self, tag):
-        alts = _get_text(tag)
-        self.manga.alt_names = alts
-
-    def _creator(self, tag):
+    def _creator(self, tag: bs4.Tag) -> Union[str, List[str]]:
         text = _get_text(tag)
         names = [x for x in text if x not in ("Add", "]")]
 
@@ -66,36 +62,39 @@ class _MangaHandler:
             return names[0]
         return names
 
-    def _author(self, tag):
+    def _alt_names(self, tag: bs4.Tag):
+        alts = _get_text(tag)
+        self.manga.alt_names = alts
+
+    def _author(self, tag: bs4.Tag):
         names = self._creator(tag)
         self.manga.author = names
 
-    def _artist(self, tag):
+    def _artist(self, tag: bs4.Tag):
         names = self._creator(tag)
         self.manga.artist = names
 
-    def _description(self, tag):
-        more = tag.find("div", id="div_desc_more")
-        if more is not None:
-            tag = more
-        description = "\n".join(_get_text(tag, recursive=False))
+    def _description(self, tag: bs4.Tag):
+        if len(tag.contents) > 0:
+            tag = tag.contents[0]
+        description = "\n".join(_get_text(tag))
         self.manga.description = description
 
-    def _year(self, tag):
-        year = _get_text(tag, recursive=False)
+    def _year(self, tag: bs4.Tag):
+        year = _get_text(tag)
         if year:
             self.manga.year = int(year[0])
         else:
             self.manga.year = 0
 
-    def _tags(self, tag):
+    def _tags(self, tag: bs4.Tag):
         tags = _get_text(tag)
         if tags:
             tags.pop()
         self.manga.tags = tags
 
-    def _status(self, tag):
-        status = " ".join(_get_text(tag, recursive=False)).lower()
+    def _status(self, tag: bs4.Tag):
+        status = " ".join(_get_text(tag)).lower()
         if "ongoing" in status:
             self.manga.status = Manga.Status.ongoing
         elif "complete" in status:
@@ -107,14 +106,14 @@ class _MangaHandler:
         else:
             self.manga.status = Manga.Status.unknown
 
-    def _licensed(self, tag):
+    def _licensed(self, tag: bs4.Tag):
         license_ = _get_text(tag, recursive=False)
         if license_:
             self.manga.licensed = license_[0].lower() == "yes"
         else:
             self.manga.licensed = False
 
-    def _magazine(self, tag):
+    def _magazine(self, tag: bs4.Tag):
         mangazine = _get_text(tag)
         if len(mangazine) == 1:
             mangazine = mangazine[0]
