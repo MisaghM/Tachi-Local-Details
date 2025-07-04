@@ -24,12 +24,12 @@ setup(
     long_description_content_type='text/markdown',
     url="https://github.com/MisaghM/Tachi-Local-Details/",
     author="MisaghM",
-    keywords=["tachiyomi", "manga"],
+    keywords=["tachiyomi", "mihon", "manga"],
     python_requires=">=3.7",
     packages=find_packages(exclude=["test", "tests"]),
     install_requires=[
-        "beautifulsoup4>=4.10.0",
-        "requests>=2.27.1"
+        "beautifulsoup4>=4.12.3",
+        "requests>=2.31.0"
     ],
     entry_points={
         "console_scripts": [f"{PROGRAM_NAME}={PROJECT_DIR}.main:main"],
