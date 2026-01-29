@@ -18,7 +18,7 @@
 ## About
 
 [**Tachiyomi**](https://tachiyomi.org/) local manga [details.json](https://tachiyomi.org/help/guides/local-manga/#editing-local-manga-details) creator.  
-Using [Baka-Updates Manga](https://www.mangaupdates.com/index.html).
+Using [Baka-Updates Manga](https://www.mangaupdates.com).
   
 *Requires Python >= 3.7*
 
@@ -29,7 +29,7 @@ The script will scrape the website and generate the `details.json` for you.
 
 ```text
 tachi-local <id>
-tachi-local https://www.mangaupdates.com/series.html?id=<id>
+tachi-local https://www.mangaupdates.com/series/<id>
 tachi-local -s <title>
 ```
 

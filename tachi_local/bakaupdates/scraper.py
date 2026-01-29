@@ -39,7 +39,7 @@ class _MangaHandler:
             raise ValueError("Manga not found.")
         self.manga.name = title.string.strip()
 
-        for item in doc.select("div[class^='info-box_sCat']"):
+        for item in doc.select("div[class^='info-box'][class$='sCat']"):
             item_text = item.get_text().strip()
             if item_text in self._attribute_map:
                 content_tag = item.find_next_sibling("div")
